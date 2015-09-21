@@ -60,7 +60,7 @@ struct ngx_pool_s {
     ngx_pool_t           *current;
     ngx_chain_t          *chain;
     ngx_pool_large_t     *large;
-    ngx_pool_cleanup_t   *cleanup;
+    ngx_pool_cleanup_t   *cleanup;//自定义的内存 以及内存释放
     ngx_log_t            *log;
 };
 
