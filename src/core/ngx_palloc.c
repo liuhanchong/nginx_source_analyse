@@ -78,6 +78,7 @@ ngx_destroy_pool(ngx_pool_t *pool)
      * so we cannot use this log while free()ing the pool
      */
 
+	 //p 当前节点 n 下一个节点
     for (p = pool, n = pool->d.next; /* void */; p = n, n = n->d.next) {
         ngx_log_debug2(NGX_LOG_DEBUG_ALLOC, pool->log, 0,
                        "free: %p, unused: %uz", p, p->d.end - p->d.last);
@@ -89,7 +90,7 @@ ngx_destroy_pool(ngx_pool_t *pool)
 
 #endif
 
-	//分配的内存节点
+	//p 当前节点 n 下一个节点 使用替代节点n 为了防止无法找到下一个节点
     for (p = pool, n = pool->d.next; /* void */; p = n, n = n->d.next) {
         ngx_free(p);
 
@@ -113,12 +114,15 @@ ngx_reset_pool(ngx_pool_t *pool)
         }
     }
 
-	//将内存池当前最后分配的内存 设置为ngx_pool_t分配后的地址
+	//重置内存池大小
     for (p = pool; p; p = p->d.next) {
         p->d.last = (u_char *) p + sizeof(ngx_pool_t);
         p->d.failed = 0;
     }
+	
+	//此处没有对ngx_pool_cleanup_t做处理
 
+	//重置基本数据信息
     pool->current = pool;
     pool->chain = NULL;
     pool->large = NULL;
@@ -131,28 +135,34 @@ ngx_palloc(ngx_pool_t *pool, size_t size)
     u_char      *m;
     ngx_pool_t  *p;
 
+	//当剩余的内存达到我们申请的内存
     if (size <= pool->max) {
 
+		//获取到当前内存池节点
         p = pool->current;
 
         do {
+			//指针对齐 向上取整 但是为何我运算出来是向下取整
             m = ngx_align_ptr(p->d.last, NGX_ALIGNMENT);
+			//(u_char *) (((uintptr_t) (p) + ((uintptr_t) a - 1)) & ~((uintptr_t) a - 1))
 
+			//经过指针对齐后的地址 获取剩余地址 判断是否符合size要求
             if ((size_t) (p->d.end - m) >= size) {
                 p->d.last = m + size;
 
                 return m;
             }
 
+			//获取下一块内存池的数据 知道符合为止
             p = p->d.next;
 
         } while (p);
 
-		//分配一个新的块
+		//如果没有符合的内存 分配一个新的内存块
         return ngx_palloc_block(pool, size);
     }
 
-	//分配一个大内存
+	//当分配的内存过大 分配一个大内存
     return ngx_palloc_large(pool, size);
 }
 
@@ -199,12 +209,13 @@ ngx_palloc_block(ngx_pool_t *pool, size_t size)
 	//获取池的空间
     psize = (size_t) (pool->d.end - (u_char *) pool);
 
-	//分配一块空间
+	//分配一块和当前池空间 可能是普通分配 也可能是对齐分配
     m = ngx_memalign(NGX_POOL_ALIGNMENT, psize, pool->log);
     if (m == NULL) {
         return NULL;
     }
 
+	//赋予新的内存池
     new = (ngx_pool_t *) m;
 
 	//初始化数据
@@ -212,17 +223,19 @@ ngx_palloc_block(ngx_pool_t *pool, size_t size)
     new->d.next = NULL;
     new->d.failed = 0;
 
+	//设置获取size大小的内存
     m += sizeof(ngx_pool_data_t);
-    m = ngx_align_ptr(m, NGX_ALIGNMENT);
+    m = ngx_align_ptr(m, NGX_ALIGNMENT);//此处可以确保m能达到多大
     new->d.last = m + size;
 
-	//将新的块加入到队列
+	//???????? 
     for (p = pool->current; p->d.next; p = p->d.next) {
-        if (p->d.failed++ > 4) {
+        if (p->d.failed++ > 4) { //失败次数 大于 4次
             pool->current = p->d.next;
         }
     }
 
+	//将新的块加入到队列
     p->d.next = new;
 
     return m;
@@ -251,19 +264,20 @@ ngx_palloc_large(ngx_pool_t *pool, size_t size)
             return p;
         }
 
-		//最多只能为三个吗
+		//超过三个 就不再插入到队尾 为什么 为了效率吗 
         if (n++ > 3) {
             break;
         }
     }
 
-	//当超过三个
+	//申请一块ngx_pool_large_t内存
     large = ngx_palloc(pool, sizeof(ngx_pool_large_t));
     if (large == NULL) {
         ngx_free(p);
         return NULL;
     }
 
+	//将新的节点插入到队列头
     large->alloc = p;
     large->next = pool->large;
     pool->large = large;
@@ -284,7 +298,7 @@ ngx_pmemalign(ngx_pool_t *pool, size_t size, size_t alignment)
         return NULL;
     }
 
-	//分配空间
+	//分配ngx_pool_large_t空间
     large = ngx_palloc(pool, sizeof(ngx_pool_large_t));
     if (large == NULL) {
         ngx_free(p);
@@ -305,7 +319,7 @@ ngx_pfree(ngx_pool_t *pool, void *p)
 {
     ngx_pool_large_t  *l;
 
-	//释放大块内存队列
+	//释放对应的大块内存队列
     for (l = pool->large; l; l = l->next) {
         if (p == l->alloc) {
             ngx_log_debug1(NGX_LOG_DEBUG_ALLOC, pool->log, 0,

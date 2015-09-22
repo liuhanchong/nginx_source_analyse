@@ -32,43 +32,43 @@ typedef void (*ngx_pool_cleanup_pt)(void *data);
 typedef struct ngx_pool_cleanup_s  ngx_pool_cleanup_t;
 
 struct ngx_pool_cleanup_s {
-    ngx_pool_cleanup_pt   handler;
-    void                 *data;
-    ngx_pool_cleanup_t   *next;
+    ngx_pool_cleanup_pt   handler;//操作函数的指针
+    void                 *data;/*内存本身*/
+    ngx_pool_cleanup_t   *next;/*下一个节点*/
 };
 
 
 typedef struct ngx_pool_large_s  ngx_pool_large_t;
 
 struct ngx_pool_large_s {
-    ngx_pool_large_t     *next;
-    void                 *alloc;
+    ngx_pool_large_t     *next;/*下一个节点*/
+    void                 *alloc;/*内存本身*/
 };
 
 
 typedef struct {
-    u_char               *last;
-    u_char               *end;
-    ngx_pool_t           *next;
-    ngx_uint_t            failed;
+    u_char               *last;/*当前数据长度*/
+    u_char               *end;/*分配的内存最大长度*/
+    ngx_pool_t           *next;/*下一个ngx_pool_s节点*/
+    ngx_uint_t            failed;/*?????*/
 } ngx_pool_data_t;
 
 
 struct ngx_pool_s {
-    ngx_pool_data_t       d;
-    size_t                max;
-    ngx_pool_t           *current;
-    ngx_chain_t          *chain;
-    ngx_pool_large_t     *large;
+    ngx_pool_data_t       d; /*内存池数据*/
+    size_t                max;/*当前内存池剩余的空间*/
+    ngx_pool_t           *current;/*ngx_pool_s节点本身*/
+    ngx_chain_t          *chain;/*?????*/
+    ngx_pool_large_t     *large;/*大块内存*/
     ngx_pool_cleanup_t   *cleanup;//自定义的内存 以及内存释放
-    ngx_log_t            *log;
+    ngx_log_t            *log;/*记录日志的信息*/
 };
 
 
 typedef struct {
-    ngx_fd_t              fd;
-    u_char               *name;
-    ngx_log_t            *log;
+    ngx_fd_t              fd;/*封装的文件句柄*/
+    u_char               *name;/*文件名????*/
+    ngx_log_t            *log;/*日志信息*/
 } ngx_pool_cleanup_file_t;
 
 
