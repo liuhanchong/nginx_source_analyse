@@ -80,6 +80,7 @@ ngx_thread_mutex_create(ngx_thread_mutex_t *mtx, ngx_log_t *log)
     ngx_err_t            err;
     pthread_mutexattr_t  attr;
 
+	//初始化信号属性
     err = pthread_mutexattr_init(&attr);
     if (err != 0) {
         ngx_log_error(NGX_LOG_EMERG, log, err,
@@ -87,6 +88,7 @@ ngx_thread_mutex_create(ngx_thread_mutex_t *mtx, ngx_log_t *log)
         return NGX_ERROR;
     }
 
+	//对于上锁的操作，如果已上锁，那么就返回，不会阻塞
     err = pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ERRORCHECK);
     if (err != 0) {
         ngx_log_error(NGX_LOG_EMERG, log, err,
@@ -95,6 +97,7 @@ ngx_thread_mutex_create(ngx_thread_mutex_t *mtx, ngx_log_t *log)
         return NGX_ERROR;
     }
 
+	//初始化信号
     err = pthread_mutex_init(mtx, &attr);
     if (err != 0) {
         ngx_log_error(NGX_LOG_EMERG, log, err,
@@ -102,6 +105,7 @@ ngx_thread_mutex_create(ngx_thread_mutex_t *mtx, ngx_log_t *log)
         return NGX_ERROR;
     }
 
+	//销毁属性
     err = pthread_mutexattr_destroy(&attr);
     if (err != 0) {
         ngx_log_error(NGX_LOG_ALERT, log, err,

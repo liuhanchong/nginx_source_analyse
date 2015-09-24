@@ -17,8 +17,8 @@
 struct ngx_thread_task_s {
     ngx_thread_task_t   *next;
     ngx_uint_t           id;
-    void                *ctx;
-    void               (*handler)(void *data, ngx_log_t *log);
+    void                *ctx;/*数据*/
+    void               (*handler)(void *data, ngx_log_t *log);//操作函数
     ngx_event_t          event;
 };
 
