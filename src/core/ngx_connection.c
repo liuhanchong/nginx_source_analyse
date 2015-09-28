@@ -16,6 +16,7 @@ ngx_os_io_t  ngx_io;
 static void ngx_drain_connections(void);
 
 
+/*填写监听结构体*/
 ngx_listening_t *
 ngx_create_listening(ngx_conf_t *cf, void *sockaddr, socklen_t socklen)
 {
@@ -24,6 +25,7 @@ ngx_create_listening(ngx_conf_t *cf, void *sockaddr, socklen_t socklen)
     struct sockaddr  *sa;
     u_char            text[NGX_SOCKADDR_STRLEN];
 
+	//获取一个监听数组元素
     ls = ngx_array_push(&cf->cycle->listening);
     if (ls == NULL) {
         return NULL;
@@ -31,19 +33,24 @@ ngx_create_listening(ngx_conf_t *cf, void *sockaddr, socklen_t socklen)
 
     ngx_memzero(ls, sizeof(ngx_listening_t));
 
+	//分配内存
     sa = ngx_palloc(cf->pool, socklen);
     if (sa == NULL) {
         return NULL;
     }
 
+	//将sockaddr信息拷贝
     ngx_memcpy(sa, sockaddr, socklen);
 
+	//保存信息
     ls->sockaddr = sa;
     ls->socklen = socklen;
 
+	/*获取带端口的字符串192.168.20:9988 ngx_sock_ntop 是 ngx_inet 中的函数*/
     len = ngx_sock_ntop(sa, socklen, text, NGX_SOCKADDR_STRLEN, 1);
     ls->addr_text.len = len;
 
+	//判断协议 获取地址最大长度
     switch (ls->sockaddr->sa_family) {
 #if (NGX_HAVE_INET6)
     case AF_INET6:
@@ -64,16 +71,20 @@ ngx_create_listening(ngx_conf_t *cf, void *sockaddr, socklen_t socklen)
          break;
     }
 
+	//为地址信息分配空间
     ls->addr_text.data = ngx_pnalloc(cf->pool, len);
     if (ls->addr_text.data == NULL) {
         return NULL;
     }
 
+	//将地址复制
     ngx_memcpy(ls->addr_text.data, text, len);
 
+	//使用TCP协议
     ls->fd = (ngx_socket_t) -1;
     ls->type = SOCK_STREAM;
 
+	//监听数 接受发送数据初始化
     ls->backlog = NGX_LISTEN_BACKLOG;
     ls->rcvbuf = -1;
     ls->sndbuf = -1;
@@ -83,7 +94,7 @@ ngx_create_listening(ngx_conf_t *cf, void *sockaddr, socklen_t socklen)
 #endif
 
 #if (NGX_HAVE_TCP_FASTOPEN)
-    ls->fastopen = -1;
+    ls->fastopen = -1;//据了解 是在第三次我手中允许传输数据
 #endif
 
     return ls;
@@ -103,27 +114,31 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
 #if (NGX_HAVE_DEFERRED_ACCEPT && defined SO_ACCEPTFILTER)
     struct accept_filter_arg   af;
 #endif
-#if (NGX_HAVE_DEFERRED_ACCEPT && defined TCP_DEFER_ACCEPT)
+#if (NGX_HAVE_DEFERRED_ACCEPT && defined TCP_DEFER_ACCEPT)//defined TCP_DEFER_ACCEPT是否已经定义TCP_DEFER_ACCEPT
     int                        timeout;
 #endif
 
+	//获取监听的数组（我认为这是客户端连接的地址）
     ls = cycle->listening.elts;
     for (i = 0; i < cycle->listening.nelts; i++) {
 
+		//为sockaddr分配空间
         ls[i].sockaddr = ngx_palloc(cycle->pool, NGX_SOCKADDRLEN);
         if (ls[i].sockaddr == NULL) {
             return NGX_ERROR;
         }
 
+		//获取客户端的地址 客户端也可以自己获取当前套接字的地址，对于客户端，可以获取未绑定套接字的地址信息
         ls[i].socklen = NGX_SOCKADDRLEN;
         if (getsockname(ls[i].fd, ls[i].sockaddr, &ls[i].socklen) == -1) {
             ngx_log_error(NGX_LOG_CRIT, cycle->log, ngx_socket_errno,
                           "getsockname() of the inherited "
                           "socket #%d failed", ls[i].fd);
-            ls[i].ignore = 1;
+            ls[i].ignore = 1;//忽略此套接字
             continue;
         }
 
+		//判断套接字的协议
         switch (ls[i].sockaddr->sa_family) {
 
 #if (NGX_HAVE_INET6)

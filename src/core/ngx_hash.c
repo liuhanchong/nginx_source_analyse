@@ -13,12 +13,13 @@ void *
 ngx_hash_find(ngx_hash_t *hash, ngx_uint_t key, u_char *name, size_t len)
 {
     ngx_uint_t       i;
-    ngx_hash_elt_t  *elt;
+    ngx_hash_elt_t  *elt;/*元素*/
 
 #if 0
     ngx_log_error(NGX_LOG_ALERT, ngx_cycle->log, 0, "hf:\"%*s\"", len, name);
 #endif
 
+	//根据键值获取元素
     elt = hash->buckets[key % hash->size];
 
     if (elt == NULL) {
@@ -26,16 +27,19 @@ ngx_hash_find(ngx_hash_t *hash, ngx_uint_t key, u_char *name, size_t len)
     }
 
     while (elt->value) {
+		//长度不同
         if (len != (size_t) elt->len) {
             goto next;
         }
 
+		//名字是否相同
         for (i = 0; i < len; i++) {
             if (name[i] != elt->name[i]) {
                 goto next;
             }
         }
 
+		/*返回值*/
         return elt->value;
 
     next:
